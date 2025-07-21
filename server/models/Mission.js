@@ -82,6 +82,10 @@ const missionSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  isInvoiced: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, Home, CheckCircle, AlertCircle, Clock, Users, Zap, List } from 'lucide-react';
+import { Calendar, Home, CheckCircle, AlertCircle, Clock, Users, Zap, List, Shirt } from 'lucide-react';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import CalendarView from './CalendarView';
@@ -44,6 +44,7 @@ const Dashboard: React.FC = () => {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoMissionsLoading, setAutoMissionsLoading] = useState(false);
+  const [autoLaundryLoading, setAutoLaundryLoading] = useState(false);
   const [stats, setStats] = useState({
     totalMissions: 0,
     missionsEnCours: 0,
@@ -51,6 +52,7 @@ const Dashboard: React.FC = () => {
     missionsProbleme: 0,
     totalApartments: 0,
     apartmentsOccupes: 0,
+    laundryTasks: 0,
   });
 
   useEffect(() => {
@@ -90,11 +92,29 @@ const Dashboard: React.FC = () => {
         missionsProbleme,
         totalApartments,
         apartmentsOccupes,
+        laundryTasks: 0, // Will be loaded separately if needed
       });
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateAutomaticLaundry = async () => {
+    try {
+      setAutoLaundryLoading(true);
+      const response = await axios.post('/laundry/auto');
+      
+      const { summary } = response.data;
+      alert(`Tâches de blanchisserie automatiques:\n- ${summary.successful} tâches créées avec succès\n- ${summary.failed} échecs\n- ${summary.skipped} ignorées (déjà existantes)`);
+      
+      await loadDashboardData();
+    } catch (error: any) {
+      console.error('Erreur lors de la création des tâches de blanchisserie:', error);
+      alert(error.response?.data?.message || 'Erreur lors de la création des tâches de blanchisserie');
+    } finally {
+      setAutoLaundryLoading(false);
     }
   };
 
@@ -170,21 +190,21 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
           Tableau de bord
         </h1>
-        <div className="flex justify-between items-center mt-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 space-y-3 sm:space-y-0">
           <p className="text-gray-600">
             Bienvenue, {user?.firstName}! Voici un aperçu de vos activités.
           </p>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
             {/* View Toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
+            <div className="flex bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 ${
+                className={`flex-1 sm:flex-none px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 ${
                   viewMode === 'list'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -195,7 +215,7 @@ const Dashboard: React.FC = () => {
               </button>
               <button
                 onClick={() => setViewMode('calendar')}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 ${
+                className={`flex-1 sm:flex-none px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 ${
                   viewMode === 'calendar'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -210,19 +230,32 @@ const Dashboard: React.FC = () => {
               <button
                 onClick={handleCreateAutomaticMissions}
                 disabled={autoMissionsLoading}
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
                 title="Créer des missions pour les réservations se terminant dans les 5 prochains jours"
               >
                 <Zap className={`h-4 w-4 mr-2 ${autoMissionsLoading ? 'animate-pulse' : ''}`} />
-                {autoMissionsLoading ? 'Création...' : 'Missions Auto (5j)'}
+                <span className="hidden sm:inline">{autoMissionsLoading ? 'Création...' : 'Missions Auto (5j)'}</span>
+                <span className="sm:hidden">{autoMissionsLoading ? 'Création...' : 'Missions Auto'}</span>
               </button>
             )}
+           {(user?.role === 'Admin' || user?.role === 'Manager') && (
+             <button
+               onClick={handleCreateAutomaticLaundry}
+               disabled={autoLaundryLoading}
+               className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors duration-200"
+               title="Créer des tâches de blanchisserie pour les nouvelles missions"
+             >
+               <Shirt className={`h-4 w-4 mr-2 ${autoLaundryLoading ? 'animate-pulse' : ''}`} />
+               <span className="hidden sm:inline">{autoLaundryLoading ? 'Création...' : 'Blanchisserie Auto'}</span>
+               <span className="sm:hidden">{autoLaundryLoading ? 'Création...' : 'Blanchisserie'}</span>
+             </button>
+           )}
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center">
             <div className="p-3 bg-blue-100 rounded-full">
@@ -270,11 +303,25 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {(user?.role === 'Admin' || user?.role === 'Manager') && (
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-100 rounded-full">
+                <Shirt className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-sm font-medium text-gray-500">Tâches Blanchisserie</h3>
+                <p className="text-2xl font-bold text-gray-900">{stats.laundryTasks}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Admin/Manager Stats */}
       {(user?.role === 'Admin' || user?.role === 'Manager') && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
               <div className="p-3 bg-purple-100 rounded-full">
@@ -307,12 +354,12 @@ const Dashboard: React.FC = () => {
         <CalendarView />
       ) : (
         <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b">
+          <div className="p-4 sm:p-6 border-b">
             <h2 className="text-xl font-semibold text-gray-900">
               Missions à venir
             </h2>
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {getUpcomingMissions().length === 0 ? (
               <p className="text-gray-500 text-center py-8">
                 Aucune mission à venir
@@ -322,14 +369,14 @@ const Dashboard: React.FC = () => {
                 {getUpcomingMissions().slice(0, 5).map((mission) => (
                   <div
                     key={mission._id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200 space-y-3 sm:space-y-0"
                   >
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{mission.title}</h3>
                       <p className="text-sm text-gray-600">
                         {mission.apartment.name} - {mission.apartment.address}
                       </p>
-                      <div className="flex items-center mt-2 space-x-4">
+                      <div className="flex flex-wrap items-center mt-2 gap-2 sm:gap-4">
                         <span className="text-sm text-gray-500">
                           {getDateLabel(mission.dateDebut)}
                         </span>
@@ -343,7 +390,7 @@ const Dashboard: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <div className="ml-4">
+                    <div className="sm:ml-4 self-start sm:self-center">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(mission.status)}`}>
                         {mission.status}
                       </span>

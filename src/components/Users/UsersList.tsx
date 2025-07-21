@@ -144,20 +144,20 @@ const UsersList: React.FC = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
       <div className="mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Utilisateurs</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Utilisateurs</h1>
             <p className="text-gray-600 mt-2">
               Gestion des comptes utilisateurs
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <button
               onClick={loadUsers}
               disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
             >
               <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualiser
@@ -165,10 +165,11 @@ const UsersList: React.FC = () => {
             {canManageUsers && (
               <button
                 onClick={handleCreate}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
               >
                 <Plus className="h-5 w-5 mr-2" />
-                Nouvel utilisateur
+                <span className="hidden sm:inline">Nouvel utilisateur</span>
+                <span className="sm:hidden">Nouveau</span>
               </button>
             )}
           </div>
@@ -183,7 +184,7 @@ const UsersList: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -216,7 +217,7 @@ const UsersList: React.FC = () => {
             <option value="inactive">Inactifs</option>
           </select>
 
-          <div className="flex items-center text-sm text-gray-600">
+          <div className="flex items-center text-sm text-gray-600 sm:col-span-2 lg:col-span-1">
             <User className="h-4 w-4 mr-1" />
             {filteredUsers.length} utilisateur(s)
           </div>
@@ -238,10 +239,10 @@ const UsersList: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Contact
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Statut
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="hidden xl:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Missions
                 </th>
                 {canManageUsers && (
@@ -265,7 +266,10 @@ const UsersList: React.FC = () => {
                         <div className="text-sm font-medium text-gray-900">
                           {user.firstName} {user.lastName}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 lg:hidden">
+                          {user.role}
+                        </div>
+                        <div className="hidden lg:block text-sm text-gray-500">
                           Créé le {new Date(user.createdAt).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
@@ -278,7 +282,7 @@ const UsersList: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 flex items-center">
-                      <Mail className="h-4 w-4 mr-1" />
+                      <Mail className="h-4 w-4 mr-1 flex-shrink-0" />
                       {user.email}
                     </div>
                     {user.phone && (
@@ -288,7 +292,7 @@ const UsersList: React.FC = () => {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       user.isActive 
                         ? 'bg-green-100 text-green-800' 
@@ -302,7 +306,7 @@ const UsersList: React.FC = () => {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden xl:table-cell px-6 py-4 whitespace-nowrap">
                     {user.missionStats ? (
                       <div className="text-sm">
                         <div className="text-gray-900">Total: {user.missionStats.total}</div>
@@ -364,7 +368,7 @@ const UsersList: React.FC = () => {
           {canManageUsers && !searchTerm && !roleFilter && !statusFilter && (
             <button
               onClick={handleCreate}
-              className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              className="mt-4 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
               <Plus className="h-5 w-5 mr-2" />
               Créer le premier utilisateur

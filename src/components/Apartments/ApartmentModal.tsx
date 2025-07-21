@@ -38,6 +38,7 @@ const ApartmentModal: React.FC<ApartmentModalProps> = ({ apartment, onClose }) =
     instructions: '',
   });
   const [amenities, setAmenities] = useState<string[]>([]);
+  const [defaultLaundryBag, setDefaultLaundryBag] = useState<Array<{label: string; qty: number}>>([]);
   const [newAmenity, setNewAmenity] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
@@ -59,6 +60,7 @@ const ApartmentModal: React.FC<ApartmentModalProps> = ({ apartment, onClose }) =
       });
       setAmenities(apartment.amenities || []);
       setExistingPhotos(apartment.photos || []);
+      setDefaultLaundryBag(apartment.defaultLaundryBag || []);
       setIcalUrls(apartment.icalUrls?.map(ical => ({
         url: ical.url,
         source: ical.source
@@ -81,6 +83,9 @@ const ApartmentModal: React.FC<ApartmentModalProps> = ({ apartment, onClose }) =
       
       // Add amenities
       formDataToSend.append('amenities', JSON.stringify(amenities));
+      
+      // Add default laundry bag
+      formDataToSend.append('defaultLaundryBag', JSON.stringify(defaultLaundryBag));
       
       // Add existing photos
       formDataToSend.append('existingPhotos', JSON.stringify(existingPhotos));
@@ -164,6 +169,20 @@ const ApartmentModal: React.FC<ApartmentModalProps> = ({ apartment, onClose }) =
 
   const removeIcalUrl = (index: number) => {
     setIcalUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addLaundryItem = () => {
+    setDefaultLaundryBag(prev => [...prev, { label: '', qty: 1 }]);
+  };
+
+  const updateLaundryItem = (index: number, field: string, value: string | number) => {
+    setDefaultLaundryBag(prev => prev.map((item, i) => 
+      i === index ? { ...item, [field]: value } : item
+    ));
+  };
+
+  const removeLaundryItem = (index: number) => {
+    setDefaultLaundryBag(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -457,6 +476,48 @@ const ApartmentModal: React.FC<ApartmentModalProps> = ({ apartment, onClose }) =
             >
               <Link className="h-4 w-4 mr-1" />
               Ajouter une URL iCal
+            </button>
+          </div>
+
+          {/* Default Laundry Bag */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sac de linge par défaut
+            </label>
+            <div className="space-y-3">
+              {defaultLaundryBag.map((item, index) => (
+                <div key={index} className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => updateLaundryItem(index, 'label', e.target.value)}
+                    placeholder="Article (ex: Draps, Serviettes...)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="number"
+                    value={item.qty}
+                    onChange={(e) => updateLaundryItem(index, 'qty', parseInt(e.target.value) || 1)}
+                    min="1"
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeLaundryItem(index)}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addLaundryItem}
+              className="mt-2 inline-flex items-center px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-md"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Ajouter un article
             </button>
           </div>
 

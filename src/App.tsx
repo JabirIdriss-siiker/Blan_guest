@@ -7,6 +7,8 @@ import MissionsList from './components/Missions/MissionsList';
 import ApartmentsList from './components/Apartments/ApartmentsList';
 import UsersList from './components/Users/UsersList';
 import CRMDashboard from './components/CRM/CRMDashboard';
+import LaundryDashboard from './components/Laundry/LaundryDashboard';
+import InvoiceDashboard from './components/Invoices/InvoiceDashboard';
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
@@ -36,6 +38,10 @@ const AppContent: React.FC = () => {
         return <UsersList />;
       case 'crm':
         return <CRMDashboard />;
+      case 'laundry':
+        return <LaundryDashboard />;
+      case 'invoices':
+        return <InvoiceDashboard />;
       case 'activity':
         return <div className="p-6">Section Activité (à implémenter)</div>;
       case 'settings':
@@ -48,7 +54,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto lg:ml-0">
         {renderContent()}
       </main>
     </div>

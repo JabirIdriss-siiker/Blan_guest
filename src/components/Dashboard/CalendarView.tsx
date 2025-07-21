@@ -137,7 +137,7 @@ const CalendarView: React.FC = () => {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow p-4">
+    <div className="bg-white rounded-2xl shadow p-2 sm:p-4">
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -145,14 +145,14 @@ const CalendarView: React.FC = () => {
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: 'dayGridMonth,timeGridWeek,listWeek'
+          right: window.innerWidth < 768 ? 'dayGridMonth' : 'dayGridMonth,timeGridWeek,listWeek'
         }}
         editable={true}
         droppable={true}
         events={events}
         eventDrop={handleEventDrop}
         eventClick={handleEventClick}
-        height="auto"
+        height={window.innerWidth < 768 ? 400 : "auto"}
         locale="fr"
         buttonText={{
           today: "Aujourd'hui",
@@ -174,7 +174,7 @@ const CalendarView: React.FC = () => {
         allDaySlot={false}
         eventDisplay="block"
         dayMaxEvents={3}
-        moreLinkText="plus"
+        moreLinkText={window.innerWidth < 768 ? "+" : "plus"}
         eventMouseEnter={(info) => {
           info.el.style.cursor = 'pointer';
         }}

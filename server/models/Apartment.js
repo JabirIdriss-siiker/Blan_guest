@@ -50,6 +50,19 @@ const apartmentSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  defaultLaundryBag: [{
+    label: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    qty: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1,
+    },
+  }],
   isActive: {
     type: Boolean,
     default: true,

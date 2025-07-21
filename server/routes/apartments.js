@@ -116,6 +116,7 @@ router.post('/', auth, authorize('Admin', 'Manager'), upload.array('photos', 10)
       cleaningPrice,
       amenities,
       instructions,
+      defaultLaundryBag,
     } = req.body;
 
     // Validate required fields
@@ -135,6 +136,7 @@ router.post('/', auth, authorize('Admin', 'Manager'), upload.array('photos', 10)
       cleaningPrice: parseFloat(cleaningPrice) || 0,
       photos,
       amenities: amenities ? JSON.parse(amenities) : [],
+      defaultLaundryBag: defaultLaundryBag ? JSON.parse(defaultLaundryBag) : [],
       instructions: instructions?.trim() || '',
       createdBy: req.user.id,
     });
@@ -171,6 +173,7 @@ router.put('/:id', auth, authorize('Admin', 'Manager'), upload.array('photos', 1
       cleaningPrice,
       amenities,
       instructions,
+      defaultLaundryBag,
       existingPhotos,
     } = req.body;
 
@@ -196,6 +199,7 @@ router.put('/:id', auth, authorize('Admin', 'Manager'), upload.array('photos', 1
       cleaningPrice: parseFloat(cleaningPrice) || 0,
       photos,
       amenities: amenities ? JSON.parse(amenities) : [],
+      defaultLaundryBag: defaultLaundryBag ? JSON.parse(defaultLaundryBag) : [],
       instructions: instructions?.trim() || '',
     };
 

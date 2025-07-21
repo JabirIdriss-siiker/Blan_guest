@@ -172,20 +172,20 @@ const MissionsList: React.FC = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
       <div className="mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Missions</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Missions</h1>
             <p className="text-gray-600 mt-2">
               Gestion des missions de nettoyage
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <button
               onClick={loadMissions}
               disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
             >
               <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualiser
@@ -193,7 +193,7 @@ const MissionsList: React.FC = () => {
             {canManageMissions && (
               <button
                 onClick={handleCreate}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                className="mt-4 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Nouvelle mission
@@ -211,7 +211,7 @@ const MissionsList: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -247,7 +247,7 @@ const MissionsList: React.FC = () => {
             <option value="Urgente">Urgente</option>
           </select>
 
-          <div className="flex items-center text-sm text-gray-600">
+          <div className="flex items-center text-sm text-gray-600 sm:col-span-2 lg:col-span-1">
             <Filter className="h-4 w-4 mr-1" />
             {filteredMissions.length} résultat(s)
           </div>
@@ -262,7 +262,7 @@ const MissionsList: React.FC = () => {
             className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow duration-200"
           >
             <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
+              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start mb-4 space-y-4 lg:space-y-0">
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     {mission.title}
@@ -271,7 +271,7 @@ const MissionsList: React.FC = () => {
                     <p className="text-gray-600 mb-3">{mission.description}</p>
                   )}
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center text-sm text-gray-600">
                       <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
                       <span className="truncate">{mission.apartment.name} - {mission.apartment.address}</span>
@@ -315,7 +315,7 @@ const MissionsList: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end space-y-2 ml-4">
+                <div className="flex flex-row lg:flex-col items-start lg:items-end justify-between lg:justify-start space-x-2 lg:space-x-0 lg:space-y-2 lg:ml-4">
                   <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(mission.status)}`}>
                     {mission.status}
                   </span>
@@ -326,7 +326,7 @@ const MissionsList: React.FC = () => {
                         <button
                           onClick={() => handleStatusUpdate(mission._id, 'En cours')}
                           disabled={updating === mission._id}
-                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors duration-200"
+                          className="px-2 sm:px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors duration-200"
                         >
                           {updating === mission._id ? 'Mise à jour...' : 'Commencer'}
                         </button>
@@ -336,14 +336,14 @@ const MissionsList: React.FC = () => {
                           <button
                             onClick={() => handleStatusUpdate(mission._id, 'Terminé')}
                             disabled={updating === mission._id}
-                            className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
+                            className="px-2 sm:px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
                           >
                             {updating === mission._id ? 'Mise à jour...' : 'Terminer'}
                           </button>
                           <button
                             onClick={() => handleStatusUpdate(mission._id, 'Problème')}
                             disabled={updating === mission._id}
-                            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors duration-200"
+                            className="px-2 sm:px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors duration-200"
                           >
                             {updating === mission._id ? 'Mise à jour...' : 'Problème'}
                           </button>

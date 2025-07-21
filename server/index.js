@@ -14,6 +14,8 @@ const icalRoutes       = require('./routes/ical');
 const clientRoutes     = require('./routes/crm/clients');
 const contactRoutes    = require('./routes/crm/contacts');
 const leadRoutes       = require('./routes/crm/leads');
+const laundryRoutes    = require('./routes/laundry');
+const invoiceRoutes    = require('./routes/invoices');
 const { syncAllApartments }      = require('./services/icalSyncService');
 const { processUpcomingBookings, processRecentlyEndedBookings } = require('./services/missionAutomationService');
 dotenv.config();
@@ -33,6 +35,8 @@ app.use('/api/ical',       icalRoutes);
 app.use('/api/crm/clients', clientRoutes);
 app.use('/api/crm/contacts', contactRoutes);
 app.use('/api/crm/leads', leadRoutes);
+app.use('/api/laundry', laundryRoutes);
+app.use('/api/invoices', invoiceRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

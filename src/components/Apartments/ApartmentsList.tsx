@@ -146,20 +146,20 @@ const ApartmentsList: React.FC = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
       <div className="mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Appartements</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Appartements</h1>
             <p className="text-gray-600 mt-2">
               Gestion des propriétés locatives
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <button
               onClick={loadApartments}
               disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
             >
               <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualiser
@@ -168,19 +168,21 @@ const ApartmentsList: React.FC = () => {
               <button
                 onClick={handleCreateAutomaticMissions}
                 disabled={creatingMissions}
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
               >
                 <Zap className={`h-5 w-5 mr-2 ${creatingMissions ? 'animate-pulse' : ''}`} />
-                {creatingMissions ? 'Création...' : 'Missions Auto'}
+                <span className="hidden sm:inline">{creatingMissions ? 'Création...' : 'Missions Auto'}</span>
+                <span className="sm:hidden">{creatingMissions ? 'Création...' : 'Auto'}</span>
               </button>
             )}
             {canManageApartments && (
               <button
                 onClick={handleCreate}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
               >
                 <Plus className="h-5 w-5 mr-2" />
-                Nouvel appartement
+                <span className="hidden sm:inline">Nouvel appartement</span>
+                <span className="sm:hidden">Nouveau</span>
               </button>
             )}
           </div>
@@ -208,7 +210,7 @@ const ApartmentsList: React.FC = () => {
       </div>
 
       {/* Apartments Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {filteredApartments.map((apartment) => (
           <div
             key={apartment._id}
@@ -237,7 +239,7 @@ const ApartmentsList: React.FC = () => {
               </div>
             )}
             
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 {apartment.name}
               </h3>
@@ -245,7 +247,7 @@ const ApartmentsList: React.FC = () => {
               <div className="space-y-2 mb-4">
                 <div className="flex items-center text-sm text-gray-600">
                   <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span className="truncate">{apartment.address}</span>
+                  <span className="truncate text-xs sm:text-sm">{apartment.address}</span>
                 </div>
                 
                 <div className="flex items-center text-sm text-gray-600">
@@ -310,7 +312,7 @@ const ApartmentsList: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0">
                 <div className="text-xs text-gray-500">
                   Créé par {apartment.createdBy.firstName} {apartment.createdBy.lastName}
                 </div>
@@ -347,7 +349,7 @@ const ApartmentsList: React.FC = () => {
           {canManageApartments && !searchTerm && (
             <button
               onClick={handleCreate}
-              className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              className="mt-4 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
               <Plus className="h-5 w-5 mr-2" />
               Créer le premier appartement

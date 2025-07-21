@@ -141,20 +141,20 @@ const LeadsPipeline: React.FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
           <h2 className="text-xl font-semibold text-gray-900">Pipeline des ventes</h2>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <button
               onClick={loadPipeline}
               disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
             >
               <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualiser
             </button>
             <button
               onClick={handleCreate}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
               <Plus className="h-5 w-5 mr-2" />
               Nouveau lead
@@ -170,11 +170,11 @@ const LeadsPipeline: React.FC = () => {
       )}
 
       {/* Pipeline Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 overflow-x-auto">
         {Object.entries(pipeline).map(([status, leads]) => (
           <div
             key={status}
-            className={`rounded-lg border-2 ${getColumnColor(status)} min-h-[500px]`}
+            className={`rounded-lg border-2 ${getColumnColor(status)} min-h-[400px] sm:min-h-[500px] min-w-[280px] xl:min-w-0`}
           >
             {/* Column Header */}
             <div className="p-4 border-b border-gray-200">
@@ -264,7 +264,7 @@ const LeadsPipeline: React.FC = () => {
                               e.stopPropagation();
                               handleStatusChange(lead._id, 'Qualified');
                             }}
-                            className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors duration-200"
+                            className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors duration-200 whitespace-nowrap"
                           >
                             Qualifier
                           </button>
@@ -275,7 +275,7 @@ const LeadsPipeline: React.FC = () => {
                               e.stopPropagation();
                               handleStatusChange(lead._id, 'Proposal');
                             }}
-                            className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors duration-200"
+                            className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition-colors duration-200 whitespace-nowrap"
                           >
                             Proposer
                           </button>
@@ -287,7 +287,7 @@ const LeadsPipeline: React.FC = () => {
                                 e.stopPropagation();
                                 handleStatusChange(lead._id, 'Won');
                               }}
-                              className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors duration-200"
+                              className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors duration-200 whitespace-nowrap"
                             >
                               Gagner
                             </button>
@@ -296,7 +296,7 @@ const LeadsPipeline: React.FC = () => {
                                 e.stopPropagation();
                                 handleStatusChange(lead._id, 'Lost');
                               }}
-                              className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors duration-200"
+                              className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors duration-200 whitespace-nowrap"
                             >
                               Perdre
                             </button>

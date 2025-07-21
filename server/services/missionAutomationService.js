@@ -4,6 +4,7 @@ const Booking   = require('../models/Booking');
 const User      = require('../models/User');
 const Apartment = require('../models/Apartment');
 const { sendMissionNotification } = require('./emailService');
+const { createLaundryTaskForMission } = require('./laundryService');
 
 // Modèle de mission par défaut
 const getDefaultMissionTemplate = (apartment, booking) => ({
@@ -129,6 +130,14 @@ async function createAutomaticMission(booking, apartment) {
     }
   });
   await mission.save();
+
+  // Create laundry task for this mission
+  try {
+    await createLaundryTaskForMission(mission, apartment, admin);
+  } catch (laundryError) {
+    console.error('⚠️ Erreur création tâche blanchisserie:', laundryError);
+    // Don't fail mission creation if laundry task fails
+  }
 
   // Notifications (asynchrone pour ne pas bloquer)
   setImmediate(async () => {
