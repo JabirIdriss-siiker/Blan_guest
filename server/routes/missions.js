@@ -146,6 +146,7 @@ router.post('/', auth, authorize('Admin', 'Manager'), async (req, res) => {
       instructions: instructions?.trim() || '',
       estimatedDuration: estimatedDuration || 60,
       cleaningPrice: parseFloat(cleaningPrice) || 0,
+      isInvoiced: false,
     });
 
     await mission.save();

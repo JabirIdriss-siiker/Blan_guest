@@ -70,21 +70,27 @@ const invoiceSchema = new mongoose.Schema({
 // Generate invoice number automatically
 invoiceSchema.pre('save', async function (next) {
   if (this.isNew && !this.invoiceNumber) {
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    try {
+      const year = new Date().getFullYear();
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
     
-    // Find the last invoice for this month
-    const lastInvoice = await this.constructor.findOne({
-      invoiceNumber: new RegExp(`^INV-${year}${month}-`)
-    }).sort({ invoiceNumber: -1 });
+      // Find the last invoice for this month
+      const lastInvoice = await this.constructor.findOne({
+        invoiceNumber: new RegExp(`^INV-${year}${month}-`)
+      }).sort({ invoiceNumber: -1 });
 
-    let sequence = 1;
-    if (lastInvoice) {
-      const lastSequence = parseInt(lastInvoice.invoiceNumber.split('-')[2]);
-      sequence = lastSequence + 1;
+      let sequence = 1;
+      if (lastInvoice) {
+        const lastSequence = parseInt(lastInvoice.invoiceNumber.split('-')[2]);
+        sequence = lastSequence + 1;
+      }
+
+      this.invoiceNumber = `INV-${year}${month}-${String(sequence).padStart(4, '0')}`;
+    } catch (error) {
+      console.error('Error generating invoice number:', error);
+      // Fallback to timestamp-based number
+      this.invoiceNumber = `INV-${Date.now()}`;
     }
-
-    this.invoiceNumber = `INV-${year}${month}-${String(sequence).padStart(4, '0')}`;
   }
 
   this.updatedAt = Date.now();

@@ -20,7 +20,9 @@ const InvoiceDashboard: React.FC = () => {
 
   const tabs = [
     { id: 'invoices', name: 'Factures', icon: FileText },
-    { id: 'earnings', name: 'Gains du personnel', icon: Users },
+    ...(user?.role === 'Admin' || user?.role === 'Manager' ? [
+      { id: 'earnings', name: 'Gains du personnel', icon: Users }
+    ] : []),
   ];
 
   useEffect(() => {
@@ -47,7 +49,7 @@ const InvoiceDashboard: React.FC = () => {
       case 'invoices':
         return <InvoicesList />;
       case 'earnings':
-        return <StaffEarnings />;
+        return user?.role === 'Admin' || user?.role === 'Manager' ? <StaffEarnings /> : <InvoicesList />;
       default:
         return <InvoicesList />;
     }

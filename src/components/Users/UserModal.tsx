@@ -7,7 +7,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'Admin' | 'Staff de ménage' | 'Manager';
+  role: 'Admin' | 'Staff de ménage' | 'Manager' | 'Blanchisserie';
   phone?: string;
   isActive: boolean;
 }
@@ -228,6 +228,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
               <option value="Staff de ménage">Staff de ménage</option>
               <option value="Manager">Manager</option>
               <option value="Admin">Admin</option>
+              <option value="Blanchisserie">Blanchisserie</option>
             </select>
           </div>
 

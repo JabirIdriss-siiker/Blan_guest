@@ -189,7 +189,7 @@ router.post('/', auth, authorize('Admin'), async (req, res) => {
     }
 
     // Validate role
-    const validRoles = ['Admin', 'Staff de ménage', 'Manager'];
+    const validRoles = ['Admin', 'Staff de ménage', 'Manager','Blanchisserie'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ message: 'Rôle invalide' });
     }
@@ -255,7 +255,7 @@ router.put('/:id', auth, async (req, res) => {
     
     // Only admins can change roles
     if (req.user.role === 'Admin' && role) {
-      const validRoles = ['Admin', 'Staff de ménage', 'Manager'];
+      const validRoles = ['Admin', 'Staff de ménage', 'Manager', 'Blanchisserie'];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ message: 'Rôle invalide' });
       }

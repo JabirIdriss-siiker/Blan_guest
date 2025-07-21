@@ -65,6 +65,7 @@ const InvoicesList: React.FC = () => {
   const loadInvoices = async () => {
     try {
       setError('');
+      console.log('Loading invoices...');
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
@@ -74,6 +75,7 @@ const InvoicesList: React.FC = () => {
       if (staffFilter) params.append('staff', staffFilter);
 
       const response = await axios.get(`/invoices?${params}`);
+      console.log('Invoices loaded:', response.data);
       setInvoices(response.data.invoices);
       setPagination(response.data.pagination);
     } catch (error: any) {

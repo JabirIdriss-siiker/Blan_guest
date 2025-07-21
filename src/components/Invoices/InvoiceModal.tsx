@@ -76,6 +76,17 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.staff || !formData.startDate || !formData.endDate) {
+      setError('Tous les champs obligatoires doivent être remplis');
+      return;
+    }
+    
+    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+      setError('La date de fin doit être après la date de début');
+      return;
+    }
+    
     setLoading(true);
     setError('');
 
@@ -87,10 +98,12 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, onClose }) => {
         });
       } else {
         // Create new invoice
+        console.log('Creating invoice with data:', formData);
         await axios.post('/invoices', formData);
       }
       onClose();
     } catch (error: any) {
+      console.error('Invoice creation error:', error);
       setError(error.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);

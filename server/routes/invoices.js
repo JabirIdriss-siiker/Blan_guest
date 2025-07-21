@@ -203,75 +203,108 @@ router.post('/', auth, authorize('Admin', 'Manager'), async (req, res) => {
   try {
     const { staff, startDate, endDate, notes } = req.body;
 
+    // Validate required fields
     if (!staff || !startDate || !endDate) {
       return res.status(400).json({ message: 'Personnel, date de début et date de fin sont requis' });
     }
 
-    // Check if staff exists
-    const staffUser = await User.findById(staff);
-    if (!staffUser || !staffUser.isActive || staffUser.role !== 'Staff de ménage') {
-      return res.status(400).json({ message: 'Personnel non trouvé' });
+    // Validate dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start >= end) {
+      return res.status(400).json({ message: 'La date de fin doit être après la date de début' });
     }
 
-    // Find completed missions in the date range
+    // Check if staff exists and is valid
+    const staffUser = await User.findById(staff);
+    if (!staffUser || !staffUser.isActive || staffUser.role !== 'Staff de ménage') {
+      return res.status(400).json({ message: 'Personnel de ménage non trouvé ou inactif' });
+    }
+
+    // Find completed missions in the date range that haven't been invoiced
     const missions = await Mission.find({
       assignedTo: staff,
       status: 'Terminé',
       timeCompleted: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      }
+        $gte: start,
+        $lte: end
+      },
+      isInvoiced: { $ne: true }
     }).populate('apartment', 'name address');
 
     if (missions.length === 0) {
-      return res.status(400).json({ message: 'Aucune mission terminée trouvée pour cette période' });
+      return res.status(400).json({
+        message: 'Aucune mission terminée non facturée trouvée pour cette période'
+      });
     }
 
-    // Check if any missions are already invoiced
-    const existingInvoices = await Invoice.find({
-      'missions.mission': { $in: missions.map(m => m._id) }
-    });
-
-    if (existingInvoices.length > 0) {
-      return res.status(400).json({ message: 'Certaines missions sont déjà facturées' });
-    }
+    console.log(`Creating invoice for ${staffUser.firstName} ${staffUser.lastName} with ${missions.length} missions`);
 
     // Create invoice missions array
     const invoiceMissions = missions.map(mission => ({
       mission: mission._id,
       title: mission.title,
-      apartment: `${mission.apartment.name} - ${mission.apartment.address}`,
+      apartment: mission.apartment ? `${mission.apartment.name} - ${mission.apartment.address}` : 'Appartement inconnu',
       dateCompleted: mission.timeCompleted,
       price: mission.cleaningPrice || 0,
     }));
 
     const totalAmount = invoiceMissions.reduce((sum, item) => sum + item.price, 0);
 
+    // -------- Génération du numéro de facture --------
+    // Format: INV-2024-0001
+    const currentYear = new Date().getFullYear();
+    const lastInvoice = await Invoice.findOne({}).sort({ createdAt: -1 });
+    let nextNumber = 1;
+    if (lastInvoice && lastInvoice.invoiceNumber) {
+      // Extraire le dernier numéro
+      const lastNum = parseInt(lastInvoice.invoiceNumber.split('-').pop());
+      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
+    }
+    const invoiceNumber = `INV-${currentYear}-${String(nextNumber).padStart(4, '0')}`;
+    // --------- Fin génération numéro ---------
+
+    // Create the invoice
     const invoice = new Invoice({
       staff,
       missions: invoiceMissions,
       period: {
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate: start,
+        endDate: end,
       },
       totalAmount,
       notes: notes?.trim() || '',
       createdBy: req.user.id,
+      invoiceNumber, // <-- On ajoute ici le numéro généré
     });
 
     await invoice.save();
+
+    // Mark missions as invoiced
+    await Mission.updateMany(
+      { _id: { $in: missions.map(m => m._id) } },
+      { isInvoiced: true }
+    );
+
+    // Populate the invoice for response
     await invoice.populate('staff', 'firstName lastName email');
     await invoice.populate('createdBy', 'firstName lastName');
 
+    console.log(`Invoice created successfully: ${invoice.invoiceNumber}`);
     res.status(201).json(invoice);
   } catch (error) {
     console.error('Error creating invoice:', error);
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Données invalides', errors: error.errors });
     }
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Numéro de facture en conflit, veuillez réessayer' });
+    }
     res.status(500).json({ message: 'Erreur lors de la création de la facture' });
   }
 });
+
 
 // PUT /api/invoices/:id - Update invoice
 router.put('/:id', auth, authorize('Admin', 'Manager'), async (req, res) => {

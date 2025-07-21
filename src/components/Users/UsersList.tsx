@@ -9,7 +9,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'Admin' | 'Staff de ménage' | 'Manager';
+  role: 'Admin' | 'Staff de ménage' | 'Manager' | 'Blanchisserie';
   phone?: string;
   isActive: boolean;
   createdAt: string;
