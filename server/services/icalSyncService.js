@@ -1,11 +1,12 @@
 // backend/src/services/icalSyncService.js
 const ical       = require('node-ical');
-const pLimit     = require('p-limit');
 const Apartment  = require('../models/Apartment');
 const Booking    = require('../models/Booking');
-
+let pLimit;
+(async () => {
+  pLimit = (await import('p-limit')).default;
+})();
 // Limit concurrent fetches to 5
-const limit = pLimit(5);
 // Chunk size for bulk writes
 const CHUNK_SIZE = 500;
 
@@ -19,7 +20,7 @@ async function fetchICalEvents(url) {
 
 async function syncAllApartments() {
   console.log('🌀 Synchronisation iCal pour tous les appartements…');
-
+   const limit = pLimit(5);
   // Only fetch needed fields, lean to plain JS
   const apartments = await Apartment.find(
     { isActive: true },
