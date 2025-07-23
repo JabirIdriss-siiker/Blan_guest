@@ -8,6 +8,11 @@ interface User {
   lastName: string;
   role: 'Admin' | 'Staff de ménage' | 'Manager';
   phone?: string;
+  managedApartments?: Array<{
+    _id: string;
+    name: string;
+    address: string;
+  }>;
 }
 
 interface AuthContextType {
@@ -28,8 +33,8 @@ export const useAuth = () => {
   return context;
 };
 
-//const API_URL = 'http://localhost:5000/api';
-const API_URL = 'https://blan-guest.onrender.com/api';
+const API_URL = 'http://localhost:5000/api';
+//const API_URL = 'https://blan-guest.onrender.com/api';
 
 // Configure axios defaults
 axios.defaults.baseURL = API_URL;

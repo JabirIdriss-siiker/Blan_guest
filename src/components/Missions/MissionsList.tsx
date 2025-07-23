@@ -371,16 +371,16 @@ const MissionsList: React.FC = () => {
                         </button>
                       )}
                        <select
-    value={mission.status}
-    onChange={(e) => handleStatusUpdate(mission._id, e.target.value)}
-    disabled={updating === mission._id}
-    className="px-2 py-1 text-xs rounded border"
-  >
-    <option value="En attente">En attente</option>
-    <option value="En cours">En cours</option>
-    <option value="Terminé">Terminé</option>
-    <option value="Problème">Problème</option>
-  </select>
+                          value={mission.status}
+                          onChange={(e) => handleStatusUpdate(mission._id, e.target.value)}
+                          disabled={updating === mission._id}
+                          className="px-2 py-1 text-xs rounded border"
+                        >
+                          <option value="En attente">En attente</option>
+                          <option value="En cours">En cours</option>
+                          <option value="Terminé">Terminé</option>
+                          <option value="Problème">Problème</option>
+                      </select>
                     </div>
                   )}
                 </div>

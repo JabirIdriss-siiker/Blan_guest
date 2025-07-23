@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Search, MapPin, Home, Calendar, Edit, Trash2, Users, Wifi, RefreshCw, Zap } from 'lucide-react';
+import { Plus, Search, MapPin, Home, Calendar, Edit, Trash2, Users, Wifi, RefreshCw, Zap, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import ApartmentModal from './ApartmentModal';
+import ManagerAssignModal from './ManagerAssignModal';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Apartment {
@@ -40,6 +41,8 @@ const ApartmentsList: React.FC = () => {
   const [selectedApartment, setSelectedApartment] = useState<Apartment | null>(null);
   const [error, setError] = useState('');
   const [creatingMissions, setCreatingMissions] = useState(false);
+  const [showManagerModal, setShowManagerModal] = useState(false);
+  const [selectedApartmentForManager, setSelectedApartmentForManager] = useState<Apartment | null>(null);
 
   useEffect(() => {
     loadApartments();
@@ -103,6 +106,17 @@ const ApartmentsList: React.FC = () => {
     loadApartments();
   };
 
+  const handleAssignManager = (apartment: Apartment) => {
+    setSelectedApartmentForManager(apartment);
+    setShowManagerModal(true);
+  };
+
+  const handleManagerModalClose = () => {
+    setShowManagerModal(false);
+    setSelectedApartmentForManager(null);
+    loadApartments();
+  };
+
   const handleCreateAutomaticMissions = async () => {
     try {
       setCreatingMissions(true);
@@ -136,6 +150,7 @@ const ApartmentsList: React.FC = () => {
   };
 
   const canManageApartments = user?.role === 'Admin' || user?.role === 'Manager';
+  const isAdmin = user?.role === 'Admin';
 
   if (loading) {
     return (
@@ -325,6 +340,15 @@ const ApartmentsList: React.FC = () => {
                     >
                       <Edit className="h-4 w-4" />
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleAssignManager(apartment)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors duration-200"
+                        title="Assigner un Manager"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(apartment._id, apartment.name)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors duration-200"
@@ -362,6 +386,13 @@ const ApartmentsList: React.FC = () => {
         <ApartmentModal
           apartment={selectedApartment}
           onClose={handleModalClose}
+        />
+      )}
+
+      {showManagerModal && selectedApartmentForManager && (
+        <ManagerAssignModal
+          apartment={selectedApartmentForManager}
+          onClose={handleManagerModalClose}
         />
       )}
     </div>

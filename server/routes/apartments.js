@@ -5,7 +5,9 @@ const fs = require('fs');
 const Apartment = require('../models/Apartment');
 const Booking = require('../models/Booking');
 const Mission = require('../models/Mission');
+const User = require('../models/User');
 const { auth, authorize } = require('../middleware/auth');
+const { limitToManagedApartments, canAccessApartment } = require('../middleware/apartmentFilter');
 
 const router = express.Router();
 
@@ -41,9 +43,19 @@ const upload = multer({
 });
 
 // GET /api/apartments - Get all apartments
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, limitToManagedApartments, async (req, res) => {
   try {
-    const apartments = await Apartment.find({ isActive: true })
+    let filter = { isActive: true };
+    
+    // Appliquer le filtre pour les Managers
+    if (req.user.role === 'Manager' && req.managedApartments) {
+      if (req.managedApartments.length === 0) {
+        return res.json([]); // Manager sans appartements assignés
+      }
+      filter._id = { $in: req.managedApartments };
+    }
+    
+    const apartments = await Apartment.find(filter)
       .populate('createdBy', 'firstName lastName')
       .sort({ createdAt: -1 });
 
@@ -71,8 +83,13 @@ router.get('/', auth, async (req, res) => {
 });
 
 // GET /api/apartments/:id - Get apartment by ID
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, limitToManagedApartments, async (req, res) => {
   try {
+    // Vérifier l'accès pour les Managers
+    if (!canAccessApartment(req, req.params.id)) {
+      return res.status(403).json({ message: 'Accès refusé à cet appartement' });
+    }
+    
     const apartment = await Apartment.findById(req.params.id)
       .populate('createdBy', 'firstName lastName');
 
@@ -143,7 +160,12 @@ router.post('/', auth, authorize('Admin', 'Manager'), upload.array('photos', 10)
 
     await apartment.save();
     await apartment.populate('createdBy', 'firstName lastName');
-
+    if (req.user.role === 'Manager') {
+      await User.findByIdAndUpdate(
+        req.user.id,
+        { $addToSet: { managedApartments: apartment._id } }
+      );
+    }
     res.status(201).json(apartment);
   } catch (error) {
     console.error('Error creating apartment:', error);
@@ -311,6 +333,55 @@ router.delete('/:id/ical/:icalId', auth, authorize('Admin', 'Manager'), async (r
   } catch (error) {
     console.error('Error removing iCal URL:', error);
     res.status(500).json({ message: 'Erreur lors de la suppression de l\'URL iCal' });
+  }
+});
+
+// POST /api/apartments/:id/assign-manager - Assign manager to apartment
+router.post('/:id/assign-manager', auth, authorize('Admin'), async (req, res) => {
+  try {
+    const { managerId } = req.body;
+    
+    if (!managerId) {
+      return res.status(400).json({ message: 'ID du manager requis' });
+    }
+
+    // Vérifier que l'utilisateur est un Manager
+    const manager = await User.findById(managerId);
+    if (!manager || manager.role !== 'Manager' || !manager.isActive) {
+      return res.status(400).json({ message: 'Manager non trouvé ou inactif' });
+    }
+
+    // Vérifier que l'appartement existe
+    const apartment = await Apartment.findById(req.params.id);
+    if (!apartment || !apartment.isActive) {
+      return res.status(404).json({ message: 'Appartement non trouvé' });
+    }
+
+    // Ajouter l'appartement à la liste des appartements gérés
+    await User.findByIdAndUpdate(
+      managerId,
+      { $addToSet: { managedApartments: req.params.id } }
+    );
+
+    res.json({ message: 'Manager assigné à l\'appartement avec succès' });
+  } catch (error) {
+    console.error('Error assigning manager:', error);
+    res.status(500).json({ message: 'Erreur lors de l\'assignation du manager' });
+  }
+});
+
+// DELETE /api/apartments/:id/unassign-manager - Remove manager from apartment
+router.delete('/:id/unassign-manager/:managerId', auth, authorize('Admin'), async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(
+      req.params.managerId,
+      { $pull: { managedApartments: req.params.id } }
+    );
+
+    res.json({ message: 'Manager retiré de l\'appartement avec succès' });
+  } catch (error) {
+    console.error('Error unassigning manager:', error);
+    res.status(500).json({ message: 'Erreur lors du retrait du manager' });
   }
 });
 

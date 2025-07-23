@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { X, User, Mail, Phone, Shield, Eye, EyeOff } from 'lucide-react';
+import { X, User, Mail, Phone, Shield, Eye, EyeOff, Building } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -10,6 +10,17 @@ interface User {
   role: 'Admin' | 'Staff de ménage' | 'Manager' | 'Blanchisserie';
   phone?: string;
   isActive: boolean;
+  managedApartments?: Array<{
+    _id: string;
+    name: string;
+    address: string;
+  }>;
+}
+
+interface Apartment {
+  _id: string;
+  name: string;
+  address: string;
 }
 
 interface UserModalProps {
@@ -26,11 +37,14 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
     role: 'Staff de ménage' as const,
     phone: '',
   });
+  const [managedApartments, setManagedApartments] = useState<string[]>([]);
+  const [availableApartments, setAvailableApartments] = useState<Apartment[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    loadApartments();
     if (user) {
       setFormData({
         email: user.email,
@@ -40,6 +54,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
         role: user.role,
         phone: user.phone || '',
       });
+      setManagedApartments(user.managedApartments?.map(apt => apt._id) || []);
     } else {
       setFormData({
         email: '',
@@ -49,8 +64,18 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
         role: 'Staff de ménage',
         phone: '',
       });
+      setManagedApartments([]);
     }
   }, [user]);
+
+  const loadApartments = async () => {
+    try {
+      const response = await axios.get('/apartments');
+      setAvailableApartments(response.data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des appartements:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +83,10 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
     setError('');
 
     try {
-      const payload = { ...formData };
+      const payload = { 
+        ...formData,
+        ...(formData.role === 'Manager' && { managedApartments })
+      };
       
       // Don't send empty password for updates
       if (user && !payload.password) {
@@ -92,9 +120,17 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
     }));
   };
 
+  const handleApartmentToggle = (apartmentId: string) => {
+    setManagedApartments(prev => 
+      prev.includes(apartmentId)
+        ? prev.filter(id => id !== apartmentId)
+        : [...prev, apartmentId]
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-900">
@@ -232,6 +268,40 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
             </select>
           </div>
 
+          {/* Appartements gérés - Seulement pour les Managers */}
+          {formData.role === 'Manager' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Building className="h-4 w-4 inline mr-1" />
+                Appartements gérés
+              </label>
+              <div className="border border-gray-300 rounded-md p-3 max-h-40 overflow-y-auto">
+                {availableApartments.length === 0 ? (
+                  <p className="text-sm text-gray-500">Aucun appartement disponible</p>
+                ) : (
+                  <div className="space-y-2">
+                    {availableApartments.map((apartment) => (
+                      <label key={apartment._id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={managedApartments.includes(apartment._id)}
+                          onChange={() => handleApartmentToggle(apartment._id)}
+                          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">
+                          {apartment.name} - {apartment.address}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Sélectionnez les appartements que ce Manager peut gérer. 
+                Laisser vide pour aucun accès.
+              </p>
+            </div>
+          )}
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <button
               type="button"

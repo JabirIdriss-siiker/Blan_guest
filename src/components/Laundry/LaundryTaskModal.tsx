@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 import { X, Calendar, MapPin, User, Plus, Trash2, FileText } from 'lucide-react';
 
 interface Apartment {
@@ -46,6 +47,7 @@ interface LaundryTaskModalProps {
 }
 
 const LaundryTaskModal: React.FC<LaundryTaskModalProps> = ({ task, onClose }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     apartment: '',
     scheduledAt: '',
@@ -82,7 +84,19 @@ const LaundryTaskModal: React.FC<LaundryTaskModalProps> = ({ task, onClose }) =>
         axios.get('/apartments'),
         axios.get('/users'),
       ]);
-      setApartments(apartmentsRes.data);
+      
+      // Filtrer les appartements selon le rôle de l'utilisateur
+      let availableApartments = apartmentsRes.data;
+      if (user?.role === 'Manager') {
+        // Pour les Managers, ne montrer que leurs appartements assignés
+        const userResponse = await axios.get(`/users/${user.id}`);
+        const managedApartmentIds = userResponse.data.managedApartments?.map((apt: any) => apt._id) || [];
+        availableApartments = apartmentsRes.data.filter((apt: Apartment) => 
+          managedApartmentIds.includes(apt._id)
+        );
+      }
+      
+      setApartments(availableApartments);
       setStaff(staffRes.data.filter((user: User & { role: string }) => 
         user.role === 'Blanchisserie' || user.role === "Staff de ménage"
       ));

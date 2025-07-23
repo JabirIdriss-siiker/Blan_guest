@@ -4,11 +4,12 @@ const Apartment = require('../models/Apartment');
 const User = require('../models/User');
 const { auth, authorize } = require('../middleware/auth');
 const { createLaundryTasksForNewMissions } = require('../services/laundryService');
+const { limitToManagedApartments, canAccessApartment, applyApartmentFilter } = require('../middleware/apartmentFilter');
 
 const router = express.Router();
 
 // GET /api/laundry - Get all laundry tasks with filters
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, limitToManagedApartments, async (req, res) => {
   try {
     const { status, apartment, assignedTo, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
     const filter = {};
@@ -30,10 +31,13 @@ router.get('/', auth, async (req, res) => {
       filter.assignedTo = req.user.id;
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const total = await LaundryTask.countDocuments(filter);
+    // Appliquer le filtre d'appartements pour les Managers
+    const finalFilter = applyApartmentFilter(req, filter);
 
-    const tasks = await LaundryTask.find(filter)
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await LaundryTask.countDocuments(finalFilter);
+
+    const tasks = await LaundryTask.find(finalFilter)
       .populate('apartment', 'name address')
       .populate('assignedTo', 'firstName lastName email')
       .populate('createdBy', 'firstName lastName')
@@ -98,7 +102,7 @@ router.get('/stats', auth, authorize('Admin', 'Manager'), async (req, res) => {
 });
 
 // GET /api/laundry/:id - Get laundry task by ID
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, limitToManagedApartments, async (req, res) => {
   try {
     const task = await LaundryTask.findById(req.params.id)
       .populate('apartment')
@@ -107,6 +111,11 @@ router.get('/:id', auth, async (req, res) => {
 
     if (!task) {
       return res.status(404).json({ message: 'Tâche de blanchisserie non trouvée' });
+    }
+
+    // Vérifier l'accès pour les Managers
+    if (!canAccessApartment(req, task.apartment._id)) {
+      return res.status(403).json({ message: 'Accès refusé à cette tâche' });
     }
 
     // Check if user has access to this task
@@ -122,7 +131,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST /api/laundry - Create new laundry task
-router.post('/', auth, authorize('Admin', 'Manager'), async (req, res) => {
+router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, async (req, res) => {
   try {
     const {
       apartment,
@@ -135,6 +144,11 @@ router.post('/', auth, authorize('Admin', 'Manager'), async (req, res) => {
     // Validate required fields
     if (!apartment || !scheduledAt || !items || !assignedTo) {
       return res.status(400).json({ message: 'Tous les champs obligatoires doivent être remplis' });
+    }
+
+    // Vérifier que le Manager peut accéder à cet appartement
+    if (!canAccessApartment(req, apartment)) {
+      return res.status(403).json({ message: 'Accès refusé à cet appartement' });
     }
 
     // Validate items

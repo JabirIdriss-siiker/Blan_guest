@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 import { X, Calendar, MapPin, User, AlertCircle, Clock, CheckSquare } from 'lucide-react';
 
 interface Apartment {
@@ -40,6 +41,7 @@ interface MissionModalProps {
 }
 
 const MissionModal: React.FC<MissionModalProps> = ({ mission, onClose }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -86,7 +88,19 @@ const MissionModal: React.FC<MissionModalProps> = ({ mission, onClose }) => {
         axios.get('/apartments'),
         axios.get('/users/staff'),
       ]);
-      setApartments(apartmentsRes.data);
+      
+      // Filtrer les appartements selon le rôle de l'utilisateur
+      let availableApartments = apartmentsRes.data;
+      if (user?.role === 'Manager') {
+        // Pour les Managers, ne montrer que leurs appartements assignés
+        const userResponse = await axios.get(`/users/${user.id}`);
+        const managedApartmentIds = userResponse.data.managedApartments?.map((apt: any) => apt._id) || [];
+        availableApartments = apartmentsRes.data.filter((apt: Apartment) => 
+          managedApartmentIds.includes(apt._id)
+        );
+      }
+      
+      setApartments(availableApartments);
       setStaff(staffRes.data);
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);

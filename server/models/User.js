@@ -41,6 +41,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  managedApartments: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Apartment',
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

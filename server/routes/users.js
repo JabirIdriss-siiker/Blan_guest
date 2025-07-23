@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Mission = require('../models/Mission');
+const Apartment = require('../models/Apartment');
 const { auth, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -62,6 +63,17 @@ router.get('/', auth, authorize('Admin', 'Manager'), async (req, res) => {
           return {
             ...user.toObject(),
             missionStats: stats
+          };
+        } else if (user.role === 'Manager') {
+          // Ajouter les appartements gérés pour les Managers
+          const managedApartments = await Apartment.find({
+            _id: { $in: user.managedApartments || [] },
+            isActive: true
+          }).select('name address');
+          
+          return {
+            ...user.toObject(),
+            managedApartments
           };
         }
         return user.toObject();
@@ -159,7 +171,20 @@ router.get('/:id', auth, async (req, res) => {
         recentMissions
       });
     } else {
-      res.json(user);
+      // Ajouter les appartements gérés pour les Managers
+      if (user.role === 'Manager') {
+        const managedApartments = await Apartment.find({
+          _id: { $in: user.managedApartments || [] },
+          isActive: true
+        }).select('name address');
+        
+        res.json({
+          ...user.toObject(),
+          managedApartments
+        });
+      } else {
+        res.json(user);
+      }
     }
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -260,6 +285,11 @@ router.put('/:id', auth, async (req, res) => {
         return res.status(400).json({ message: 'Rôle invalide' });
       }
       updateData.role = role;
+    }
+
+    // Only admins can manage apartment assignments for Managers
+    if (req.user.role === 'Admin' && req.body.managedApartments !== undefined) {
+      updateData.managedApartments = req.body.managedApartments;
     }
 
     // Handle password update

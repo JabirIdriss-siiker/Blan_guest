@@ -113,4 +113,30 @@ missionSchema.pre('save', function (next) {
   next();
 });
 
+// Hook pour vérifier les permissions des Managers
+missionSchema.pre('save', async function (next) {
+  // Seulement pour les nouvelles missions ou si l'appartement change
+  if (this.isNew || this.isModified('apartment')) {
+    try {
+      // Récupérer l'utilisateur qui crée/modifie la mission
+      const User = require('./User');
+      const creator = await User.findById(this.createdBy);
+      
+      if (creator && creator.role === 'Manager') {
+        // Vérifier que l'appartement est dans la liste des appartements gérés
+        const managedApartmentIds = creator.managedApartments?.map(id => id.toString()) || [];
+        
+        if (!managedApartmentIds.includes(this.apartment.toString())) {
+          const error = new Error('Accès refusé : cet appartement n\'est pas dans votre périmètre de gestion');
+          error.name = 'ValidationError';
+          return next(error);
+        }
+      }
+    } catch (error) {
+      return next(error);
+    }
+  }
+  next();
+});
+
 module.exports = mongoose.model('Mission', missionSchema);

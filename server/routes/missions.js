@@ -8,6 +8,7 @@ const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
 const { auth, authorize } = require('../middleware/auth');
 const { sendMissionNotification } = require('../services/emailService');
+const { limitToManagedApartments, canAccessApartment, applyApartmentFilter } = require('../middleware/apartmentFilter');
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ const upload = multer({
 });
 
 // GET /api/missions - Get all missions with filters
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, limitToManagedApartments, async (req, res) => {
   try {
     const { status, apartment, assignedTo, priority, dateFrom, dateTo } = req.query;
     const filter = {};
@@ -55,7 +56,10 @@ router.get('/', auth, async (req, res) => {
       filter.assignedTo = req.user.id;
     }
 
-    const missions = await Mission.find(filter)
+    // Appliquer le filtre d'appartements pour les Managers
+    const finalFilter = applyApartmentFilter(req, filter);
+
+    const missions = await Mission.find(finalFilter)
       .populate('apartment', 'name address photos')
       .populate('assignedTo', 'firstName lastName email')
       .populate('createdBy', 'firstName lastName')
@@ -69,7 +73,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // GET /api/missions/:id - Get mission by ID
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, limitToManagedApartments, async (req, res) => {
   try {
     const mission = await Mission.findById(req.params.id)
       .populate('apartment')
@@ -78,6 +82,11 @@ router.get('/:id', auth, async (req, res) => {
 
     if (!mission) {
       return res.status(404).json({ message: 'Mission non trouvée' });
+    }
+
+    // Vérifier l'accès pour les Managers
+    if (!canAccessApartment(req, mission.apartment._id)) {
+      return res.status(403).json({ message: 'Accès refusé à cette mission' });
     }
 
     // Check if user has access to this mission
@@ -93,7 +102,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST /api/missions - Create new mission
-router.post('/', auth, authorize('Admin', 'Manager'), async (req, res) => {
+router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, async (req, res) => {
   try {
     const {
       apartment,
@@ -112,6 +121,11 @@ router.post('/', auth, authorize('Admin', 'Manager'), async (req, res) => {
     // Validate required fields
     if (!apartment || !assignedTo || !title || !dateDebut || !dateFin) {
       return res.status(400).json({ message: 'Tous les champs obligatoires doivent être remplis' });
+    }
+
+    // Vérifier que le Manager peut accéder à cet appartement
+    if (!canAccessApartment(req, apartment)) {
+      return res.status(403).json({ message: 'Accès refusé à cet appartement' });
     }
 
     // Validate dates

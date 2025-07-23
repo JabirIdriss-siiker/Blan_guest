@@ -21,6 +21,11 @@ interface User {
     termine: number;
     probleme: number;
   };
+  managedApartments?: Array<{
+    _id: string;
+    name: string;
+    address: string;
+  }>;
 }
 
 const UsersList: React.FC = () => {
@@ -314,6 +319,16 @@ const UsersList: React.FC = () => {
                           En cours: {user.missionStats.enCours} | 
                           Terminées: {user.missionStats.termine}
                         </div>
+                      </div>
+                    ) : user.managedApartments ? (
+                      <div className="text-sm">
+                        <div className="text-gray-900">{user.managedApartments.length} appartement(s)</div>
+                        {user.managedApartments.length > 0 && (
+                          <div className="text-xs text-gray-500">
+                            {user.managedApartments.slice(0, 2).map(apt => apt.name).join(', ')}
+                            {user.managedApartments.length > 2 && ` +${user.managedApartments.length - 2}`}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span className="text-sm text-gray-500">-</span>
