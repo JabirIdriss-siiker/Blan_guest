@@ -84,16 +84,8 @@ router.post('/sync/:apartmentId', auth, authorize('Admin', 'Manager'), async (re
           bookingsAdded++;
           console.log(`  ➕ Nouveau booking créé: ${externalId}`);
 
-          // If booking ends within 5 days, create auto mission
-          const fiveDaysFromNow = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
-          if (dateFin >= now && dateFin <= fiveDaysFromNow) {
-            try {
-              await createAutomaticMission(booking, apartment);
-              console.log(`    🔔 Mission auto créée pour réservation se terminant ${dateFin.toISOString()}`);
-            } catch (missionError) {
-              console.error('    ⚠️ Erreur création mission auto:', missionError);
-            }
-          }
+          // Note: Les missions automatiques sont créées via les routes dédiées
+          // pour éviter les conflits de concurrence lors de la sync iCal
         }
       }
 
@@ -189,14 +181,8 @@ router.post('/sync-all', auth, authorize('Admin', 'Manager'), async (req, res) =
             bookingsAdded++;
             console.log(`    ➕ Créé nouveau booking`);
 
-            if (dateFin >= now && dateFin <= fiveDaysFromNow) {
-              try {
-                await createAutomaticMission(booking, apartment);
-                console.log(`      🔔 Mission auto créée`);
-              } catch (missionError) {
-                console.error('      ⚠️ Erreur mission auto:', missionError);
-              }
-            }
+            // Note: Les missions automatiques sont créées via les routes dédiées
+            // pour éviter les conflits de concurrence lors de la sync globale
           }
         }
 

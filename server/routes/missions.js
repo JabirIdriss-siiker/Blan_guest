@@ -60,7 +60,8 @@ router.get('/', auth, limitToManagedApartments, async (req, res) => {
     const finalFilter = applyApartmentFilter(req, filter);
 
     const missions = await Mission.find(finalFilter)
-      .populate('apartment', 'name address photos')
+      
+      .populate('apartment', 'name address description photos')
       .populate('assignedTo', 'firstName lastName email')
       .populate('createdBy', 'firstName lastName')
       .sort({ createdAt: -1 });
