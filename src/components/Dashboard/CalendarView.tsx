@@ -50,7 +50,7 @@ const CalendarView: React.FC = () => {
       
       const calendarEvents: EventInput[] = response.data.map(mission => ({
         id: mission._id,
-        title: `${mission.apartment.address} – ${mission.status}`,
+        title: `${mission.apartment.name} – ${mission.status}`,
         start: mission.dateDebut,
         end: mission.dateFin,
         backgroundColor: statusColors[mission.status]?.bg || '#64748b',

@@ -13,6 +13,7 @@ interface Mission {
     _id: string;
     name: string;
     address: string;
+    description : string;
   };
   assignedTo: {
     _id: string;
@@ -29,6 +30,7 @@ interface Apartment {
   _id: string;
   name: string;
   address: string;
+  description : string;
   bookings: Array<{
     dateDebut: string;
     dateFin: string;
@@ -374,7 +376,7 @@ const Dashboard: React.FC = () => {
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{mission.title}</h3>
                       <p className="text-sm text-gray-600">
-                        {mission.apartment.name} - {mission.apartment.address}
+                        {mission.apartment.name} - {mission.apartment.address} - {mission.apartment.description}
                       </p>
                       <div className="flex flex-wrap items-center mt-2 gap-2 sm:gap-4">
                         <span className="text-sm text-gray-500">
