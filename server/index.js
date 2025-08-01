@@ -46,42 +46,79 @@ app.use((err, req, res, next) => {
 
 // Scheduler
 function startMissionScheduler() {
+  const { AUTOMATION_CONFIG } = require('./services/missionAutomationService');
+  
   // 1) Sync iCal toutes les heures
   setInterval(async () => {
     try {
+      console.log('🔄 Starting scheduled iCal sync...');
       await syncAllApartments();
+      console.log('✅ Scheduled iCal sync completed');
     } catch (err) {
       console.error('Erreur sync iCal:', err);
     }
   }, 60 * 60 * 1000);
 
-  // 2) Missions à venir (5j) toutes les 2h
+  // 2) Enhanced upcoming missions processing every 4h
   setInterval(async () => {
     try {
-      console.log('📅 Planif. missions (5 jours)...');
+      console.log(`📅 Processing upcoming missions (${AUTOMATION_CONFIG.LOOKAHEAD_DAYS}d window, ${AUTOMATION_CONFIG.ADVANCE_DAYS}d advance rule)...`);
       await processUpcomingBookings();
+      console.log('✅ Upcoming missions processing completed');
     } catch (err) {
-      console.error('Erreur planif. missions (5 jours):', err);
+      console.error(`Erreur processing upcoming missions:`, err);
     }
-  }, 2 * 60 * 60 * 1000);
+  }, 4 * 60 * 60 * 1000); // Every 4 hours
 
-  // 3) Missions récentes (<24h) chaque 30min
+  // 3) Recent bookings processing every 30min
   setInterval(async () => {
     try {
-      console.log('🕒 Planif. missions (récentes)...');
+      console.log('🕒 Processing recent bookings...');
       await processRecentlyEndedBookings();
+      console.log('✅ Recent bookings processing completed');
     } catch (err) {
-      console.error('Erreur planif. missions (récentes):', err);
+      console.error('Erreur processing recent bookings:', err);
     }
   }, 30 * 60 * 1000);
 
+  // 4) Cleanup stale cache entries every hour
+  setInterval(async () => {
+    try {
+      const { getCacheStatus, clearCache } = require('./services/missionAutomationService');
+      const status = getCacheStatus();
+      console.log('🧹 Cache status check completed', {
+        bookingCacheSize: status.bookingStateCache.size,
+        staffCacheLoaded: status.staffCache.loaded,
+        flappingEntries: status.bookingStateCache.flappingEntries
+      });
+      
+      // Auto-cleanup if cache gets too large
+      if (status.bookingStateCache.size > 1000) {
+        console.log('🧹 Auto-cleaning large cache...');
+        clearCache();
+      }
+    } catch (err) {
+      console.error('Erreur cache cleanup:', err);
+    }
+  }, 60 * 60 * 1000);
+  
   // Exécution initiale après 30s
   setTimeout(async () => {
     try {
+      console.log('🚀 Starting initial automation execution...');
       await syncAllApartments();
       
       await processUpcomingBookings();
       await processRecentlyEndedBookings();
+      
+      // Run initial diagnostics
+      const { runDiagnostics } = require('./services/missionAutomationService');
+      const diagnostics = await runDiagnostics();
+      console.log('🔍 Initial diagnostics completed', {
+        duplicateGroups: diagnostics.duplicateAnalysis.duplicateGroups,
+        overlappingBookings: diagnostics.bookingAnalysis.overlappingBookings,
+        totalMissions: diagnostics.missionAnalysis.totalMissions
+      });
     } catch (err) {
       console.error('Erreur exécution initiale scheduler:', err);
     }

@@ -3,6 +3,7 @@ const ical = require('node-ical');
 const Apartment = require('../models/Apartment');
 const Booking = require('../models/Booking');
 const { createAutomaticMission } = require('../services/missionAutomationService');
+const { runDiagnostics, getCacheStatus, clearCache } = require('../services/missionAutomationService');
 const { auth, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -218,18 +219,19 @@ router.post('/create-missions', auth, authorize('Admin', 'Manager'), async (req,
       processRecentlyEndedBookings
     } = require('../services/missionAutomationService');
 
-    const [upcomingResults, recentResults] = await Promise.all([
-      processUpcomingBookings(),
-      processRecentlyEndedBookings()
-    ]);
+    // Process with enhanced overlap detection
+    const upcomingResults = await processUpcomingBookings();
+    const recentResults = await processRecentlyEndedBookings();
 
     res.json({
       message: 'Traitement des missions automatiques terminé',
       summary: {
         upcomingProcessed: upcomingResults.length,
-        recentProcessed:   recentResults.length,
-        successful:        [...upcomingResults, ...recentResults].filter(r => r.success).length,
-        failed:            [...upcomingResults, ...recentResults].filter(r => !r.success).length
+        recentProcessed: recentResults.length,
+        successful: [...upcomingResults, ...recentResults].filter(r => r.success).length,
+        failed: [...upcomingResults, ...recentResults].filter(r => !r.success).length,
+        successfulMissions: [...upcomingResults, ...recentResults].filter(r => r.success && r.created).length,
+        duplicatesDetected: [...upcomingResults, ...recentResults].filter(r => r.success && !r.created).length
       },
       details: {
         upcomingResults,
@@ -242,4 +244,66 @@ router.post('/create-missions', auth, authorize('Admin', 'Manager'), async (req,
   }
 });
 
+// Enhanced diagnostics endpoint
+router.get('/diagnostics', auth, authorize('Admin', 'Manager'), async (req, res) => {
+  try {
+    const diagnostics = await runDiagnostics();
+    res.json(diagnostics);
+  } catch (error) {
+    console.error('❌ Erreur route /diagnostics :', error);
+    res.status(500).json({ message: 'Erreur lors de l\'exécution des diagnostics' });
+  }
+});
+
+// Cache management endpoint
+router.post('/clear-cache', auth, authorize('Admin'), async (req, res) => {
+  try {
+    clearCache();
+    res.json({ 
+      message: 'Cache cleared successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Erreur route /clear-cache :', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression du cache' });
+  }
+});
+
+// Cache status endpoint
+router.get('/cache-status', auth, authorize('Admin', 'Manager'), async (req, res) => {
+  try {
+    const status = getCacheStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('❌ Erreur route /cache-status :', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération du statut du cache' });
+  }
+});
+
+// Maintenance period management
+router.post('/maintenance/:apartmentId', auth, authorize('Admin', 'Manager'), async (req, res) => {
+  try {
+    const { startDate, endDate } = req.body;
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'Dates de début et fin requises' });
+    }
+    
+    const { cleanupMissionsForMaintenancePeriod } = require('../services/missionAutomationService');
+    
+    const cancelledCount = await cleanupMissionsForMaintenancePeriod(
+      req.params.apartmentId,
+      new Date(startDate),
+      new Date(endDate)
+    );
+    
+    res.json({
+      message: 'Période de maintenance configurée',
+      cancelledMissions: cancelledCount
+    });
+  } catch (error) {
+    console.error('❌ Erreur route /maintenance :', error);
+    res.status(500).json({ message: 'Erreur lors de la configuration de la maintenance' });
+  }
+});
 module.exports = router;

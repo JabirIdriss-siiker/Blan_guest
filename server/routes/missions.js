@@ -8,6 +8,7 @@ const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
 const { auth, authorize } = require('../middleware/auth');
 const { sendMissionNotification } = require('../services/emailService');
+const { createManualMission } = require('../services/missionAutomationService');
 const { limitToManagedApartments, canAccessApartment, applyApartmentFilter } = require('../middleware/apartmentFilter');
 
 const router = express.Router();
@@ -117,6 +118,7 @@ router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, 
       instructions,
       estimatedDuration,
       cleaningPrice,
+      allowOverride,
     } = req.body;
 
     // Validate required fields
@@ -130,11 +132,11 @@ router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, 
     }
 
     // Validate dates
-    const startDate = new Date(dateDebut);
+   /* const startDate = new Date(dateDebut);
     const endDate = new Date(dateFin);
     if (startDate >= endDate) {
       return res.status(400).json({ message: 'La date de fin doit être après la date de début' });
-    }
+    }*/
 
     // Check if apartment exists
     const apartmentExists = await Apartment.findById(apartment);
@@ -148,7 +150,8 @@ router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, 
       return res.status(400).json({ message: 'Utilisateur assigné non trouvé' });
     }
 
-    const mission = new Mission({
+    // Use enhanced manual mission creation
+    const missionData = {
       apartment,
       assignedTo,
       createdBy: req.user.id,
@@ -162,9 +165,10 @@ router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, 
       estimatedDuration: estimatedDuration || 60,
       cleaningPrice: parseFloat(cleaningPrice) || 0,
       isInvoiced: false,
-    });
+    };
 
-    await mission.save();
+    const mission = await createManualMission(missionData, { allowOverride });
+    
     await mission.populate('apartment', 'name address');
     await mission.populate('assignedTo', 'firstName lastName email');
     await mission.populate('createdBy', 'firstName lastName');
@@ -182,7 +186,7 @@ router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, 
       action: 'Mission créée',
       entityType: 'Mission',
       entityId: mission._id,
-      details: `Mission "${title}" assignée à ${mission.assignedTo.firstName} ${mission.assignedTo.lastName}`,
+      details: `Mission "${title}" assignée à ${mission.assignedTo.firstName} ${mission.assignedTo.lastName}${mission.metadata?.manualOverride ? ' (remplace mission automatique)' : ''}`,
     }).save();
 
     res.status(201).json(mission);
@@ -190,6 +194,13 @@ router.post('/', auth, authorize('Admin', 'Manager'), limitToManagedApartments, 
     console.error('Error creating mission:', error);
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Données invalides', errors: error.errors });
+    }
+    if (error.message.includes('mission automatique existe déjà')) {
+      return res.status(409).json({ 
+        message: error.message,
+        code: 'AUTOMATIC_MISSION_EXISTS',
+        suggestion: 'Utilisez allowOverride: true pour remplacer la mission automatique'
+      });
     }
     res.status(500).json({ message: 'Erreur lors de la création de la mission' });
   }
