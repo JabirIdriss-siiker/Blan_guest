@@ -1,7 +1,7 @@
-// server/services/icalSyncService.js
 const ical = require('node-ical');
 const ApartmentImport = require('../models/Apartment');
 const BookingImport = require('../models/Booking');
+const { processRecentlyEndedBookings, processAdvancedUpcomingBookings } = require('./missionAutomationService');
 
 const Apartment = ApartmentImport.default || ApartmentImport;
 const Booking = BookingImport.default || BookingImport;
@@ -13,7 +13,8 @@ let pLimit;
 })();
 
 const CHUNK_SIZE = 500;
-const DEBOUNCE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const DEBOUNCE_WINDOW_MS = 5 * 60 * 1000; // éviter resync trop rapide par source
+const STABILITY_WINDOW_MS = 5 * 60 * 1000; // fenêtre pour stabiliser un changement
 
 // Logger
 const logger = {
@@ -23,15 +24,27 @@ const logger = {
   debug: (msg, meta = {}) => console.log(`🔍 [iCalSync] ${msg}`, meta),
 };
 
-// Debounce map to avoid re-syncing the same feed too rapidly
+// Debounce sync par apartment+source
 const syncState = new Map();
+
+// État consolidé par appartement pour gérer flapping / fusion
+const apartmentStateCache = new Map();
+/*
+state shape:
+{
+  activeBooking: { start: Date, end: Date, source: string, uid: string, summary?: string } | null,
+  candidate: same | null,
+  candidateSince: number,
+  lastActiveBooking: same | null  // pour détection de libération
+}
+*/
 
 function shouldSkipSync(apartmentId, source) {
   const key = `${apartmentId.toString()}_${source}`;
   const last = syncState.get(key);
   if (!last) return false;
   if (Date.now() - last < DEBOUNCE_WINDOW_MS) {
-    logger.debug('Skipping iCal sync due to debounce', { apartmentId: apartmentId.toString(), source });
+    logger.debug('Skipping sync due to debounce', { apartmentId: apartmentId.toString(), source });
     return true;
   }
   return false;
@@ -50,12 +63,68 @@ async function fetchICalEvents(url) {
   }
 }
 
+/**
+ * Réconcilie et stabilise l'état iCal pour un appartement donné.
+ * @param {ObjectId} apartmentId
+ * @param {{ start: Date, end: Date, source: string, uid: string, summary?: string } | null} bookingInterval
+ * @returns consolidated activeBooking (ou null si libéré stable)
+ */
+function reconcileBookingState(apartmentId, bookingInterval) {
+  const key = apartmentId.toString();
+  const now = Date.now();
+  let state = apartmentStateCache.get(key);
+  if (!state) {
+    state = {
+      activeBooking: null,
+      candidate: null,
+      candidateSince: 0,
+      lastActiveBooking: null
+    };
+    apartmentStateCache.set(key, state);
+  }
+
+  const sameInterval = (a, b) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return (
+      a.start.getTime() === b.start.getTime() &&
+      a.end.getTime() === b.end.getTime() &&
+      a.source === b.source
+    );
+  };
+
+  // Si identique à l'actif actuel, on réinitialise candidate
+  if (sameInterval(state.activeBooking, bookingInterval)) {
+    state.candidate = null;
+    return state.activeBooking;
+  }
+
+  // Si la candidate a changé, reset timer
+  if (!sameInterval(state.candidate, bookingInterval)) {
+    state.candidate = bookingInterval;
+    state.candidateSince = now;
+    return state.activeBooking; // attente de stabilisation
+  }
+
+  // Promotion si stable assez longtemps
+  if (state.candidate && now - state.candidateSince >= STABILITY_WINDOW_MS) {
+    state.lastActiveBooking = state.activeBooking;
+    state.activeBooking = state.candidate;
+    state.candidate = null;
+    state.candidateSince = 0;
+    return state.activeBooking;
+  }
+
+  // Pas encore stable : retourne l'actif en place
+  return state.activeBooking;
+}
+
 async function syncAllApartments() {
-  logger.info('Starting iCal sync for all apartments');
+  logger.info('Début de la synchronisation iCal pour tous les appartements');
   if (!pLimit) {
     await new Promise(r => setTimeout(r, 100));
     if (!pLimit) {
-      logger.error('p-limit not loaded; aborting sync');
+      logger.error('p-limit pas prêt, abandon de la sync');
       return;
     }
   }
@@ -68,138 +137,182 @@ async function syncAllApartments() {
   for (const apt of apartments) {
     if (!Array.isArray(apt.icalUrls)) continue;
 
-    for (const cfg of apt.icalUrls) {
-      if (!cfg || !cfg.isActive) continue;
-      if (shouldSkipSync(apt._id, cfg.source)) continue;
+    // Pour chaque appartement, on collecte les intervalles par source en parallèle
+    const perSourcePromises = apt.icalUrls
+      .filter(cfg => cfg && cfg.isActive)
+      .map(cfg => limit(async () => {
+        if (shouldSkipSync(apt._id, cfg.source)) {
+          return null;
+        }
 
-      tasks.push(limit(async () => {
-        logger.debug('Syncing iCal for apartment', {
-          apartmentName: apt.name,
-          source: cfg.source,
-          url: cfg.url?.slice(0, 80) + (cfg.url && cfg.url.length > 80 ? '...' : '')
-        });
-
+        logger.debug('Fetch iCal pour', { apartmentName: apt.name, source: cfg.source });
         let events;
         try {
           events = await fetchICalEvents(cfg.url);
-          logger.debug('Fetched raw events', { apartmentName: apt.name, source: cfg.source, count: Object.keys(events).length });
         } catch (err) {
-          logger.error('Failed to fetch iCal events', { apartmentName: apt.name, source: cfg.source, error: err.message });
+          logger.error('Erreur fetch iCal', { apartmentName: apt.name, source: cfg.source, error: err.message });
+          return null;
+        }
+
+        // Déterminer l'intervalle significatif le plus récent dans cette source
+        let latestInterval = null;
+        for (const ev of Object.values(events)) {
+          if (ev.type !== 'VEVENT' || !ev.start || !ev.end) continue;
+          const dateDebut = new Date(ev.start);
+          const dateFin = new Date(ev.end);
+          if (dateFin < now) continue; // ignore passé
+
+          if (
+            !latestInterval ||
+            dateFin.getTime() > latestInterval.end.getTime() ||
+            (dateFin.getTime() === latestInterval.end.getTime() && dateDebut.getTime() > latestInterval.start.getTime())
+          ) {
+            latestInterval = {
+              start: dateDebut,
+              end: dateFin,
+              source: cfg.source,
+              uid: ev.uid,
+              summary: ev.summary
+            };
+          }
+        }
+
+        markSyncCompleted(apt._id, cfg.source);
+        return latestInterval;
+      }));
+
+    tasks.push(
+      (async () => {
+        const intervals = (await Promise.all(perSourcePromises)).filter(Boolean);
+        if (!intervals.length) {
+          // Peut être situation de libération si auparavant actif et maintenant rien de stable
+          const consolidatedEmpty = reconcileBookingState(apt._id, null);
+          const prevState = apartmentStateCache.get(apt._id.toString());
+          const prevActive = prevState ? prevState.lastActiveBooking : null;
+          if (!consolidatedEmpty && prevActive) {
+            logger.info('Appart libéré stable détecté (aucune source active)', {
+              apartmentId: apt._id.toString(),
+              previous: prevActive
+            });
+            // déclenchement recent-ended
+            setImmediate(() => {
+              processRecentlyEndedBookings().catch(e => {
+                logger.error('Erreur pipeline recent-ended après libération', { error: e.message });
+              });
+            });
+          }
           return [];
         }
 
-        const ops = [];
-        for (const ev of Object.values(events)) {
-          if (ev.type !== 'VEVENT' || !ev.start || !ev.end) continue;
-
-          const dateDebut = new Date(ev.start);
-          const dateFin = new Date(ev.end);
-
-          // Only future or just-ended (for cleanup) — we let mission service decide creation
-          if (dateFin < new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)) {
-            // too old, ignore beyond some retention window
-            continue;
+        // Choisir, parmi toutes les sources, l'intervalle "dominant" (priorité à la fin la plus tardive, puis début)
+        let chosen = null;
+        for (const interval of intervals) {
+          if (
+            !chosen ||
+            interval.end.getTime() > chosen.end.getTime() ||
+            (interval.end.getTime() === chosen.end.getTime() && interval.start.getTime() > chosen.start.getTime())
+          ) {
+            chosen = interval;
           }
+        }
 
+        const prevState = apartmentStateCache.get(apt._id.toString());
+        const prevActive = prevState ? prevState.activeBooking : null;
+
+        const consolidated = reconcileBookingState(apt._id, chosen);
+
+        const ops = [];
+
+        if (consolidated) {
+          // Upsert booking consolidé
           const filter = {
             apartment: apt._id,
-            externalId: ev.uid,
-            source: cfg.source
+            externalId: consolidated.uid || `${apt._id.toString()}_${consolidated.start.toISOString()}`,
+            source: consolidated.source
           };
           const update = {
             $set: {
               apartment: apt._id,
-              dateDebut,
-              dateFin,
-              guestName: ev.summary || 'Réservation',
-              source: cfg.source,
+              dateDebut: consolidated.start,
+              dateFin: consolidated.end,
+              guestName: consolidated.summary || 'Réservation consolidée',
+              source: consolidated.source,
               syncedAt: now,
-              lastModified: ev.lastmodified ? new Date(ev.lastmodified) : now
+              lastModified: now,
+              status: 'Confirmé'
             },
             $setOnInsert: {
-              externalId: ev.uid,
-              status: 'Confirmé',
+              externalId: filter.externalId,
               createdAt: now
             }
           };
-
           ops.push({ updateOne: { filter, update, upsert: true } });
-
-          // If booking just ended very recently, trigger immediate cleanup missions
-          if (dateFin <= now && dateFin >= new Date(now.getTime() - 5 * 60 * 1000)) {
-            logger.info('Detected booking just ended, triggering recent-ended pipeline', {
-              apartment: apt.name,
-              externalId: ev.uid
+        } else {
+          // consolidated === null signifie libération stable si prevActive existait
+          if (prevActive) {
+            logger.info('Appart libéré stable détecté via consolidation', {
+              apartmentId: apt._id.toString(),
+              previous: prevActive
             });
-            // fire-and-forget
-            try {
-              const { processRecentlyEndedBookings } = require('./missionAutomationService');
+            setImmediate(() => {
               processRecentlyEndedBookings().catch(e => {
-                logger.error('Error processing recently ended after checkout', { error: e.message });
+                logger.error('Erreur pipeline recent-ended après libération', { error: e.message });
               });
-            } catch (e) {
-              logger.error('Cannot invoke recent-ended pipeline', { error: e.message });
-            }
+            });
           }
         }
 
-        logger.debug('Prepared bulk ops for apartment', {
-          apartmentName: apt.name,
-          source: cfg.source,
-          opsCount: ops.length
-        });
-
-        markSyncCompleted(apt._id, cfg.source);
         return ops;
-      }));
-    }
+      })()
+    );
   }
 
   const results = await Promise.all(tasks);
-  const bulkOps = results.flat();
+  const bulkOps = results.flat(2); // double flatten (car chaque tâche peut retourner array ou promise)
 
   if (!bulkOps.length) {
-    logger.info('No iCal changes to persist');
+    logger.info('Aucun changement iCal à persister');
     return { totalUpserted: 0, totalModified: 0, totalOperations: 0 };
   }
 
   let totalUpserted = 0;
   let totalModified = 0;
 
-  // Bulk write in chunks
   for (let i = 0; i < bulkOps.length; i += CHUNK_SIZE) {
     const chunk = bulkOps.slice(i, i + CHUNK_SIZE);
     try {
       const res = await Booking.bulkWrite(chunk, { ordered: false });
       totalUpserted += res.upsertedCount || 0;
       totalModified += res.modifiedCount || 0;
-      logger.debug('Bulk write batch result', {
+      logger.debug('Résultat batch bulkWrite', {
         batch: Math.floor(i / CHUNK_SIZE) + 1,
         upserted: res.upsertedCount,
         modified: res.modifiedCount
       });
     } catch (err) {
-      logger.error('BulkWrite error', { batch: Math.floor(i / CHUNK_SIZE) + 1, error: err.message });
+      logger.error('Erreur bulkWrite', {
+        batch: Math.floor(i / CHUNK_SIZE) + 1,
+        error: err.message
+      });
     }
   }
 
-  logger.info('iCal synchronization complete', {
+  logger.info('Synchronisation iCal terminée', {
     totalUpserted,
     totalModified,
     totalOperations: totalUpserted + totalModified
   });
 
-  // Trigger automatic mission creation based on fresh booking state
+  // Déclenchement des pipelines de mission
   try {
-    const { processUpcomingBookings, processRecentlyEndedBookings } = require('./missionAutomationService');
-    processUpcomingBookings().catch(e => {
-      logger.error('Error creating upcoming missions after iCal sync', { error: e.message });
-    });
-    processRecentlyEndedBookings().catch(e => {
-      logger.error('Error creating recent-ended missions after iCal sync', { error: e.message });
-    });
+    await processAdvancedUpcomingBookings();
   } catch (e) {
-    logger.error('Could not invoke mission automation after sync', { error: e.message });
+    logger.error('Erreur création missions à venir après sync', { error: e.message });
+  }
+  try {
+    await processRecentlyEndedBookings();
+  } catch (e) {
+    logger.error('Erreur création missions récentes après sync', { error: e.message });
   }
 
   return {
